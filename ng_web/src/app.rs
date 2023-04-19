@@ -2,7 +2,7 @@ use crate::block_entry::BlockEntry;
 use crate::guess_entry::GuessEntry;
 use gloo_net::http::Request;
 use log::{debug, info};
-use ng_model::{sort_guesses_by_target_diff, Guess, Target};
+use ng_model::{check_for_duplicate_guess, sort_guesses_by_target_diff, Guess, Target};
 use std::rc::Rc;
 use std::str::FromStr;
 use thousands::Separable;
@@ -29,10 +29,10 @@ enum Route {
 
 #[function_component(Secure)]
 fn secure() -> Html {
-
     let state = use_reducer(|| AppState {
         target: None,
         guesses: None,
+        error: None,
     });
 
     //let onclick = Callback::from(move |_| navigator.push(&Route::Home));
@@ -59,7 +59,7 @@ fn secure() -> Html {
             }
         })
     };
-    
+
     html! {
         <div class="section">
             <div class="container">
@@ -92,6 +92,7 @@ fn switch(routes: Route) -> Html {
 pub struct AppState {
     pub target: Option<Target>,
     pub guesses: Option<Vec<Guess>>,
+    pub error: Option<String>,
 }
 
 pub enum AppAction {
@@ -99,6 +100,8 @@ pub enum AppAction {
     SetGuesses(Vec<Guess>),
     SetBlock(u32),
     SetNonce(u32),
+    SetError(String),
+    GetError(String),
 }
 
 impl Reducible for AppState {
@@ -109,17 +112,20 @@ impl Reducible for AppState {
             AppAction::SetTarget(target) => AppState {
                 guesses: self.guesses.clone(),
                 target: Some(target),
+                error: None,
             }
             .into(),
             AppAction::SetGuesses(guesses) => AppState {
                 guesses: Some(guesses),
                 target: self.target.clone(),
+                error: None,
             }
             .into(),
             AppAction::SetBlock(block) => {
                 AppState {
                     guesses: None,
                     target: Some(Target { block, nonce: None }),
+                    error: None,
                 }
             }
             .into(),
@@ -130,6 +136,23 @@ impl Reducible for AppState {
                         block: self.target.clone().unwrap().block,
                         nonce: Some(nonce),
                     }),
+                    error: None,
+                }
+            }
+            .into(),
+            AppAction::SetError(error) => {
+                AppState {
+                    guesses: self.guesses.clone(),
+                    target: self.target.clone(),
+                    error: Some(error),
+                }
+            }
+            .into(),
+            AppAction::GetError() => {
+                AppState {
+                    guesses: self.guesses.clone(),
+                    target: self.target.clone(),
+                    error: self.error.clone(),
                 }
             }
             .into(),
@@ -151,6 +174,7 @@ fn home() -> Html {
     let state = use_reducer(|| AppState {
         target: None,
         guesses: None,
+        error: None,
     });
 
     use_effect_with_deps(
@@ -216,6 +240,45 @@ fn home() -> Html {
             let state = state.clone();
             {
                 wasm_bindgen_futures::spawn_local(async move {
+                    let fetched_target: Option<Target> = Request::get("/api/target")
+                        .send()
+                        .await
+                        .unwrap()
+                        .json()
+                        .await
+                        .ok();
+                    if let Some(target) = &fetched_target {
+                        info!("fetched target block: {}", target.block.to_string());
+                        state.dispatch(AppAction::SetTarget(target.clone()));
+                    }
+                    let block_path = &fetched_target
+                        .clone()
+                        .map(|t| {
+                            if t.nonce.is_some() {
+                                format!("/{}", t.block)
+                            } else {
+                                String::default()
+                            }
+                        })
+                        .unwrap_or_default();
+                    let mut fetched_guesses: Vec<Guess> =
+                        Request::get(format!("/api/guesses{}", block_path).as_str())
+                            .send()
+                            .await
+                            .unwrap()
+                            .json()
+                            .await
+                            .unwrap();
+                    let is_dupe: Result<_, _> =
+                        check_for_duplicate_guess(fetched_guesses.as_mut_slice(), &guess);
+                    match is_dupe {
+                        Ok(s) => info!("Guess does not exist: {:?}", s),
+                        Err(e) => {
+                            let err_msg = format!("You cannot submit multiple guesses {:?}", e);
+                            debug!("{}", err_msg);
+                            state.dispatch(AppAction::SetError(err_msg));
+                        }
+                    };
                     let post_guess_result = Request::post("/api/guesses")
                         .json(&guess)
                         .unwrap()
@@ -224,29 +287,6 @@ fn home() -> Html {
                         .unwrap();
                     debug!("post_guess_result: {:?}", post_guess_result);
                     if post_guess_result.ok() {
-                        let fetched_target: Option<Target> = Request::get("/api/target")
-                            .send()
-                            .await
-                            .unwrap()
-                            .json()
-                            .await
-                            .ok();
-
-                        if let Some(target) = &fetched_target {
-                            info!("fetched target block: {}", target.block.to_string());
-                            state.dispatch(AppAction::SetTarget(target.clone()));
-                        }
-
-                        let block_path = &fetched_target
-                            .clone()
-                            .map(|t| {
-                                if t.nonce.is_some() {
-                                    format!("/{}", t.block)
-                                } else {
-                                    String::default()
-                                }
-                            })
-                            .unwrap_or_default();
                         let mut fetched_guesses: Vec<Guess> =
                             Request::get(format!("/api/guesses{}", block_path).as_str())
                                 .send()
@@ -255,8 +295,6 @@ fn home() -> Html {
                                 .json()
                                 .await
                                 .unwrap();
-
-                        debug!("fetched guesses len: {}", fetched_guesses.len());
                         if let Some(Target {
                             block: _,
                             nonce: Some(nonce),
@@ -266,8 +304,9 @@ fn home() -> Html {
                         }
                         state.dispatch(AppAction::SetGuesses(fetched_guesses));
                     } else {
-                        // TODO else display an error
-                        debug!("add guess error: {:?}", post_guess_result);
+                        let err_msg = format!("add guess error: {:?}", post_guess_result);
+                        debug!("{}", err_msg);
+                        state.dispatch(AppAction::SetError(err_msg));
                     }
                 });
             }
@@ -356,6 +395,7 @@ fn home() -> Html {
                 <div class="columns">
                     <div class="column is-one-third">
                             <GuessEntry onaddguess={ on_add_guess }/>
+                            <div class="alert"> { AppState::error } </div>
                     </div>
                     <div class="column">
                         if let Some(target) = target {
