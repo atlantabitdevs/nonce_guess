@@ -101,7 +101,6 @@ pub enum AppAction {
     SetBlock(u32),
     SetNonce(u32),
     SetError(String),
-    GetError(String),
 }
 
 impl Reducible for AppState {
@@ -145,14 +144,6 @@ impl Reducible for AppState {
                     guesses: self.guesses.clone(),
                     target: self.target.clone(),
                     error: Some(error),
-                }
-            }
-            .into(),
-            AppAction::GetError() => {
-                AppState {
-                    guesses: self.guesses.clone(),
-                    target: self.target.clone(),
-                    error: self.error.clone(),
                 }
             }
             .into(),
@@ -395,7 +386,6 @@ fn home() -> Html {
                 <div class="columns">
                     <div class="column is-one-third">
                             <GuessEntry onaddguess={ on_add_guess }/>
-                            <div class="alert"> { AppState::error } </div>
                     </div>
                     <div class="column">
                         if let Some(target) = target {
