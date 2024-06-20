@@ -1,8 +1,8 @@
 use crate::block_entry::BlockEntry;
 use crate::guess_entry::GuessEntry;
 use gloo_net::http::Request;
-use log::{ debug, info };
-use ng_model::{ no_duplicate_guess, sort_guesses_by_target_diff, Guess, Target };
+use log::{debug, info};
+use ng_model::{no_duplicate_guess, sort_guesses_by_target_diff, Guess, Target};
 use std::rc::Rc;
 use std::str::FromStr;
 use thousands::Separable;
@@ -52,63 +52,6 @@ fn secure() -> Html {
                     } else {
                         // TODO else display an error
                         debug!("set block error: {:?}", post_block_result);
-                    }
-                });
-            }
-        })
-    };
-
-    let onclick_update = {
-        let state = state.clone();
-        Callback::from(move |_| {
-            {
-                let state = state.clone();
-                wasm_bindgen_futures::spawn_local(async move {
-                    let get_nonce_result = Request::get("/api/target/nonce")
-                        .send()
-                        .await
-                        .unwrap()
-                        .text()
-                        .await;
-
-                    debug!("get_nonce_result: {:?}", get_nonce_result);
-                    if let Ok(nonce) = get_nonce_result {
-                        //let nonce = get_nonce_result.unwrap();
-                        if !nonce.is_empty() {
-                            let nonce = u32::from_str(nonce.as_str()).unwrap();
-                            debug!("get_nonce_result: {}", nonce);
-                            state.dispatch(AppAction::SetNonce(nonce));
-                            if let Some(mut guesses) = state.guesses.clone() {
-                                sort_guesses_by_target_diff(guesses.as_mut_slice(), nonce);
-                                state.dispatch(AppAction::SetGuesses(guesses));
-                            }
-                        }
-                    } else {
-                        // TODO else display an error
-                        debug!("get nonce error: {:?}", get_nonce_result);
-                    }
-
-                    if let Some(target) = state.target.clone() {
-                        let get_guesses_result: Result<Vec<Guess>, _> =
-                            Request::get(format!("/api/guesses").as_str())
-                                .send()
-                                .await
-                                .unwrap()
-                                .json()
-                                .await;
-
-                        if let Ok(mut guesses) = get_guesses_result {
-                            if !guesses.is_empty() {
-                                debug!("get_guesses_result: {:?}", guesses);
-                                if let Some(nonce) = target.nonce {
-                                    sort_guesses_by_target_diff(guesses.as_mut_slice(), nonce);
-                                }
-                                state.dispatch(AppAction::SetGuesses(guesses));
-                            }
-                        } else {
-                            // TODO else display an error
-                            debug!("get guesses error: {:?}", get_guesses_result);
-                        }
                     }
                 });
             }
@@ -292,18 +235,17 @@ fn home() -> Html {
                             }
                         })
                         .unwrap_or_default();
-                    let mut fetched_guesses: Vec<Guess> = Request::get(
-                        format!("/api/guesses{}", block_path).as_str()
-                    )
-                        .send().await
-                        .unwrap()
-                        .json().await
-                        .unwrap();
-                    let is_not_dupe: Result<_, _> = no_duplicate_guess(
-                        fetched_guesses.as_mut_slice(),
-                        &guess
-                    );
-                    match is_not_dupe {
+                    let mut fetched_guesses: Vec<Guess> =
+                        Request::get(format!("/api/guesses{}", block_path).as_str())
+                            .send()
+                            .await
+                            .unwrap()
+                            .json()
+                            .await
+                            .unwrap();
+                    let is_dupe: Result<_, _> =
+                        no_duplicate_guess(fetched_guesses.as_mut_slice(), &guess);
+                    match is_dupe {
                         Ok(s) => info!("Guess does not exist: {:?}", s),
                         Err(e) => {
                             let err_msg = format!("You cannot submit multiple guesses {:?}", e);
