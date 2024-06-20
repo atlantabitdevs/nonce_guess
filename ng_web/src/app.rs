@@ -1,13 +1,13 @@
 use crate::block_entry::BlockEntry;
 use crate::guess_entry::GuessEntry;
 use gloo_net::http::Request;
-use log::{debug, info};
-use ng_model::{no_duplicate_guess, sort_guesses_by_target_diff, Guess, Target};
+use log::{ debug, info };
+use ng_model::{ no_duplicate_guess, sort_guesses_by_target_diff, Guess, Target };
 use std::rc::Rc;
 use std::str::FromStr;
 use thousands::Separable;
 use yew::prelude::*;
-use yew::{function_component, Reducible};
+use yew::{ function_component, Reducible };
 use yew_router::prelude::*;
 
 use base64::engine::general_purpose;
@@ -44,8 +44,7 @@ fn secure() -> Html {
                 wasm_bindgen_futures::spawn_local(async move {
                     let post_block_result = Request::post("/api/target")
                         .body(block)
-                        .send()
-                        .await
+                        .send().await
                         .unwrap();
                     debug!("post_block_result: {:?}", post_block_result);
                     if post_block_result.ok() {
@@ -105,33 +104,37 @@ impl Reducible for AppState {
 
     fn reduce(self: Rc<Self>, action: Self::Action) -> Rc<Self> {
         match action {
-            AppAction::SetTarget(target) => AppState {
-                guesses: self.guesses.clone(),
-                target: Some(target),
-            }
-            .into(),
-            AppAction::SetGuesses(guesses) => AppState {
-                guesses: Some(guesses),
-                target: self.target.clone(),
-            }
-            .into(),
-            AppAction::SetBlock(block) => {
-                AppState {
-                    guesses: None,
-                    target: Some(Target { block, nonce: None }),
-                }
-            }
-            .into(),
-            AppAction::SetNonce(nonce) => {
-                AppState {
+            AppAction::SetTarget(target) =>
+                (AppState {
                     guesses: self.guesses.clone(),
-                    target: Some(Target {
-                        block: self.target.clone().unwrap().block,
-                        nonce: Some(nonce),
-                    }),
-                }
-            }
-            .into(),
+                    target: Some(target),
+                }).into(),
+            AppAction::SetGuesses(guesses) =>
+                (AppState {
+                    guesses: Some(guesses),
+                    target: self.target.clone(),
+                }).into(),
+            AppAction::SetBlock(block) =>
+                (
+                    {
+                        AppState {
+                            guesses: None,
+                            target: Some(Target { block, nonce: None }),
+                        }
+                    }
+                ).into(),
+            AppAction::SetNonce(nonce) =>
+                (
+                    {
+                        AppState {
+                            guesses: self.guesses.clone(),
+                            target: Some(Target {
+                                block: self.target.clone().unwrap().block,
+                                nonce: Some(nonce),
+                            }),
+                        }
+                    }
+                ).into(),
         }
     }
 }
@@ -158,11 +161,9 @@ fn home() -> Html {
             move |_| {
                 wasm_bindgen_futures::spawn_local(async move {
                     let fetched_target: Option<Target> = Request::get("/api/target")
-                        .send()
-                        .await
+                        .send().await
                         .unwrap()
-                        .json()
-                        .await
+                        .json().await
                         .ok();
 
                     if let Some(target) = &fetched_target {
@@ -181,21 +182,16 @@ fn home() -> Html {
                         })
                         .unwrap_or_default();
 
-                    let mut fetched_guesses: Vec<Guess> =
-                        Request::get(format!("/api/guesses{}", block_path).as_str())
-                            .send()
-                            .await
-                            .unwrap()
-                            .json()
-                            .await
-                            .unwrap();
+                    let mut fetched_guesses: Vec<Guess> = Request::get(
+                        format!("/api/guesses{}", block_path).as_str()
+                    )
+                        .send().await
+                        .unwrap()
+                        .json().await
+                        .unwrap();
 
                     debug!("fetched guesses len: {}", fetched_guesses.len());
-                    if let Some(Target {
-                        block: _,
-                        nonce: Some(nonce),
-                    }) = fetched_target
-                    {
+                    if let Some(Target { block: _, nonce: Some(nonce) }) = fetched_target {
                         sort_guesses_by_target_diff(fetched_guesses.as_mut_slice(), nonce);
                     }
                     state.dispatch(AppAction::SetGuesses(fetched_guesses.clone()));
@@ -203,7 +199,7 @@ fn home() -> Html {
                 || ()
             }
         },
-        (),
+        ()
     );
 
     let target = state.target.clone();
@@ -216,11 +212,9 @@ fn home() -> Html {
             {
                 wasm_bindgen_futures::spawn_local(async move {
                     let fetched_target: Option<Target> = Request::get("/api/target")
-                        .send()
-                        .await
+                        .send().await
                         .unwrap()
-                        .json()
-                        .await
+                        .json().await
                         .ok();
 
                     if let Some(target) = &fetched_target {
@@ -238,46 +232,41 @@ fn home() -> Html {
                             }
                         })
                         .unwrap_or_default();
-                    let mut fetched_guesses: Vec<Guess> =
-                        Request::get(format!("/api/guesses{}", block_path).as_str())
-                            .send()
-                            .await
-                            .unwrap()
-                            .json()
-                            .await
-                            .unwrap();
-                    let is_not_dupe: Result<_, _> =
-                        no_duplicate_guess(fetched_guesses.as_mut_slice(), &guess);
+                    let mut fetched_guesses: Vec<Guess> = Request::get(
+                        format!("/api/guesses{}", block_path).as_str()
+                    )
+                        .send().await
+                        .unwrap()
+                        .json().await
+                        .unwrap();
+                    let is_not_dupe: Result<_, _> = no_duplicate_guess(
+                        fetched_guesses.as_mut_slice(),
+                        &guess
+                    );
                     match is_not_dupe {
                         Ok(s) => info!("Guess does not exist: {:?}", s),
                         Err(e) => {
                             let err_msg = format!("You cannot submit multiple guesses {:?}", e);
                             debug!("{}", err_msg);
                         }
-                    };
+                    }
                     let post_guess_result = Request::post("/api/guesses")
                         .json(&guess)
                         .unwrap()
-                        .send()
-                        .await
+                        .send().await
                         .unwrap();
                     debug!("post_guess_result: {:?}", post_guess_result);
                     if post_guess_result.ok() {
-                        fetched_guesses =
-                            Request::get(format!("/api/guesses{}", block_path).as_str())
-                                .send()
-                                .await
-                                .unwrap()
-                                .json()
-                                .await
-                                .unwrap();
+                        fetched_guesses = Request::get(
+                            format!("/api/guesses{}", block_path).as_str()
+                        )
+                            .send().await
+                            .unwrap()
+                            .json().await
+                            .unwrap();
 
                         debug!("fetched guesses len: {}", fetched_guesses.len());
-                        if let Some(Target {
-                            block: _,
-                            nonce: Some(nonce),
-                        }) = fetched_target
-                        {
+                        if let Some(Target { block: _, nonce: Some(nonce) }) = fetched_target {
                             sort_guesses_by_target_diff(fetched_guesses.as_mut_slice(), nonce);
                         }
                         state.dispatch(AppAction::SetGuesses(fetched_guesses));
@@ -297,8 +286,9 @@ fn home() -> Html {
         .url()
         .expect_throw("url is undefined");
 
-    let url_qr_png: Vec<u8> =
-        qrcode_generator::to_png_to_vec(document_url, QrCodeEcc::Low, 150).unwrap();
+    let url_qr_png: Vec<u8> = qrcode_generator
+        ::to_png_to_vec(document_url, QrCodeEcc::Low, 150)
+        .unwrap();
     let url_qr_base64 = general_purpose::STANDARD.encode(&url_qr_png);
     let url_qr_img_src = format!("data:image/png;base64,{}", url_qr_base64);
 
@@ -309,11 +299,9 @@ fn home() -> Html {
                 let state = state.clone();
                 wasm_bindgen_futures::spawn_local(async move {
                     let get_nonce_result = Request::get("/api/target/nonce")
-                        .send()
-                        .await
+                        .send().await
                         .unwrap()
-                        .text()
-                        .await;
+                        .text().await;
 
                     debug!("get_nonce_result: {:?}", get_nonce_result);
                     if let Ok(nonce) = get_nonce_result {
@@ -333,13 +321,12 @@ fn home() -> Html {
                     }
 
                     if let Some(target) = state.target.clone() {
-                        let get_guesses_result: Result<Vec<Guess>, _> =
-                            Request::get(format!("/api/guesses").as_str())
-                                .send()
-                                .await
-                                .unwrap()
-                                .json()
-                                .await;
+                        let get_guesses_result: Result<Vec<Guess>, _> = Request::get(
+                            format!("/api/guesses").as_str()
+                        )
+                            .send().await
+                            .unwrap()
+                            .json().await;
 
                         if let Ok(mut guesses) = get_guesses_result {
                             if !guesses.is_empty() {
@@ -364,7 +351,11 @@ fn home() -> Html {
             <div class="container">
                 <h1 class="title"><span>
                     <Link<Route> to={Route::Home}>
-                        <img src="/img/apple-touch-icon.png" width="75" height="75"/>
+                        <a href="https://atlantabitdevs.org">
+                            <img src="https://atlantabitdevs.org/content/uploads/2021/10/ColorColor-SizeCondensed.png" width="250" height="250" style="margin:0 1em" />
+                        </a>
+                        <br />
+                        <br />
                     </Link<Route>>
                     { "Guess the Block Nonce" }
                 </span></h1>
