@@ -299,8 +299,8 @@ fn home() -> Html {
             <div class="container">
                 <h1 class="title"><span>
                     <Link<Route> to={Route::Home}>
-                        <a href="https://atlantabitdevs.org">
-                            <img src="https://atlantabitdevs.org/content/uploads/2021/10/ColorColor-SizeCondensed.png" width="250" height="250" style="margin:0 1em" />
+                        <a href="https://atlbitlab.com">
+                            <img src="https://atlbitlab.com/_ipx/w_3840,q_75/%2F_next%2Fstatic%2Fmedia%2Fatl-bitlab-logo-horz-white.4016256f.png?url=%2F_next%2Fstatic%2Fmedia%2Fatl-bitlab-logo-horz-white.4016256f.png&w=3840&q=75" width="250" height="250" style="margin:0 1em" />
                         </a>
                         <br />
                         <br />
