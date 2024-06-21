@@ -1,8 +1,8 @@
 use crate::block_entry::BlockEntry;
 use crate::guess_entry::GuessEntry;
 use gloo_net::http::Request;
-use log::{debug, info};
-use ng_model::{no_duplicate_guess, sort_guesses_by_target_diff, Guess, Target};
+use log::{ debug, info };
+use ng_model::{ no_duplicate_guess, sort_guesses_by_target_diff, Guess, Target };
 use std::rc::Rc;
 use std::str::FromStr;
 use thousands::Separable;
@@ -63,7 +63,9 @@ fn secure() -> Html {
             <div class="container">
                 <h1 class="title"><span>
                     <Link<Route> to={Route::Home}>
-                        <img src="/img/apple-touch-icon.png" width="75" height="75"/>
+                        <a href="https://atlbitlab.com">
+                            <img src="https://atlbitlab.com/_ipx/w_3840,q_75/%2F_next%2Fstatic%2Fmedia%2Fatl-bitlab-logo-horz-white.4016256f.png?url=%2F_next%2Fstatic%2Fmedia%2Fatl-bitlab-logo-horz-white.4016256f.png&w=3840&q=75" width="250" height="250" style="margin:0 1em" />
+                        </a>
                     </Link<Route>>
                 </span></h1>
             </div>
@@ -215,63 +217,6 @@ fn home() -> Html {
             {
                 wasm_bindgen_futures::spawn_local(async move {
                     let fetched_target: Option<Target> = Request::get("/api/target")
-<<<<<<< HEAD
-                        .send()
-                        .await
-                        .unwrap()
-                        .json()
-                        .await
-                        .ok();
-
-                    if let Some(target) = &fetched_target {
-                        info!("fetched target block: {}", target.block.to_string());
-                        state.dispatch(AppAction::SetTarget(target.clone()));
-                    }
-
-                    let block_path = &fetched_target
-                        .clone()
-                        .map(|t| {
-                            if t.nonce.is_some() {
-                                format!("/{}", t.block)
-                            } else {
-                                String::default()
-                            }
-                        })
-                        .unwrap_or_default();
-                    let mut fetched_guesses: Vec<Guess> =
-                        Request::get(format!("/api/guesses{}", block_path).as_str())
-                            .send()
-                            .await
-                            .unwrap()
-                            .json()
-                            .await
-                            .unwrap();
-                    let is_not_dupe: Result<_, _> =
-                        no_duplicate_guess(fetched_guesses.as_mut_slice(), &guess);
-                    match is_not_dupe {
-                        Ok(s) => info!("Guess does not exist: {:?}", s),
-                        Err(e) => {
-                            let err_msg = format!("You cannot submit multiple guesses {:?}", e);
-                            debug!("{}", err_msg);
-                        }
-                    };
-                    let post_guess_result = Request::post("/api/guesses")
-                        .json(&guess)
-                        .unwrap()
-                        .send()
-                        .await
-                        .unwrap();
-                    debug!("post_guess_result: {:?}", post_guess_result);
-                    if post_guess_result.ok() {
-                        fetched_guesses =
-                            Request::get(format!("/api/guesses{}", block_path).as_str())
-                                .send()
-                                .await
-                                .unwrap()
-                                .json()
-                                .await
-                                .unwrap();
-=======
                         .send().await
                         .unwrap()
                         .json().await
@@ -292,16 +237,17 @@ fn home() -> Html {
                             }
                         })
                         .unwrap_or_default();
-                    let mut fetched_guesses: Vec<Guess> =
-                        Request::get(format!("/api/guesses{}", block_path).as_str())
-                            .send()
-                            .await
-                            .unwrap()
-                            .json()
-                            .await
-                            .unwrap();
-                    let is_dupe: Result<_, _> =
-                        no_duplicate_guess(fetched_guesses.as_mut_slice(), &guess);
+                    let mut fetched_guesses: Vec<Guess> = Request::get(
+                        format!("/api/guesses{}", block_path).as_str()
+                    )
+                        .send().await
+                        .unwrap()
+                        .json().await
+                        .unwrap();
+                    let is_dupe: Result<_, _> = no_duplicate_guess(
+                        fetched_guesses.as_mut_slice(),
+                        &guess
+                    );
                     match is_dupe {
                         Ok(s) => info!("Guess does not exist: {:?}", s),
                         Err(e) => {
@@ -323,7 +269,6 @@ fn home() -> Html {
                             .unwrap()
                             .json().await
                             .unwrap();
->>>>>>> 9f23e8237357c98ca69aac18b7f3bafb581c0e4a
 
                         debug!("fetched guesses len: {}", fetched_guesses.len());
                         if let Some(Target { block: _, nonce: Some(nonce) }) = fetched_target {
